@@ -9,7 +9,12 @@ from typing import Callable, Literal, Protocol
 
 from . import converters, exceptions, filters, setters, validators
 from ._cmp import cmp_using
-from ._config import get_run_validators, set_run_validators
+from ._config import (
+    get_kw_only_override,
+    get_run_validators,
+    set_kw_only_override,
+    set_run_validators,
+)
 from ._funcs import asdict, assoc, astuple, has, resolve_types
 from ._make import (
     NOTHING,
@@ -64,6 +69,7 @@ __all__ = [
     "fields_dict",
     "filters",
     "frozen",
+    "get_kw_only_override",
     "get_run_validators",
     "has",
     "ib",
@@ -71,6 +77,7 @@ __all__ = [
     "mutable",
     "resolve_types",
     "s",
+    "set_kw_only_override",
     "set_run_validators",
     "setters",
     "validate",

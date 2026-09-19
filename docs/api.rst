@@ -301,6 +301,9 @@ All objects from ``attrs.filters`` are also available from ``attr.filters`` (it'
          ...
       TypeError: ("'x' must be <class 'int'> (got '1' that is a <class 'str'>).", ...)
 
+.. autofunction:: attrs.set_kw_only_override
+.. autofunction:: attrs.get_kw_only_override
+
 
 .. _api-validators:
 

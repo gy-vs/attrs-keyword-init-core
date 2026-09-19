@@ -242,8 +242,10 @@ class TestTransformAttrs:
 
     def test_kw_only(self):
         """
-        Converts all attributes, including base class' attributes, if `kw_only`
-        is provided. Therefore, `kw_only` allows attributes with defaults to
+        Converts the class's own attributes that don't set `kw_only`
+        explicitly if class-level `kw_only` is provided.  Attributes with an
+        explicit `kw_only` and attributes inherited from base classes are
+        left alone.  Therefore, `kw_only` allows attributes with defaults to
         precede mandatory attributes.
 
         Updates in the subclass *don't* affect the base class attributes.
@@ -259,12 +261,50 @@ class TestTransformAttrs:
         class C(B):
             x = attr.ib(default=None)
             y = attr.ib()
+            z = attr.ib(kw_only=False)
 
         attrs, base_attrs, _ = _transform_attrs(
             C, None, False, True, True, None
         )
 
-        assert len(attrs) == 3
+        assert len(attrs) == 4
+        assert len(base_attrs) == 1
+
+        x, y, z = (a for a in attrs if not a.inherited)
+
+        # Unset kw_only inherits the class-level setting ...
+        assert x.kw_only is True
+        assert y.kw_only is True
+        # ... but an explicit field-level setting wins ...
+        assert z.kw_only is False
+        # ... and inherited attributes are not touched.
+        assert base_attrs[0].kw_only is False
+
+        for b_a in B.__attrs_attrs__:
+            assert b_a.kw_only is False
+
+    def test_kw_only_force_override(self, kw_only_force_override):
+        """
+        If the historic force-override behavior is enabled using
+        `attrs.set_kw_only_override`, a class-level `kw_only=True` converts
+        all attributes, including base class' attributes and those that
+        explicitly set `kw_only=False`.
+        """
+
+        @attr.s
+        class B:
+            b = attr.ib()
+
+        class C(B):
+            x = attr.ib(default=None)
+            y = attr.ib()
+            z = attr.ib(kw_only=False)
+
+        attrs, base_attrs, _ = _transform_attrs(
+            C, None, False, True, True, None
+        )
+
+        assert len(attrs) == 4
         assert len(base_attrs) == 1
 
         for a in attrs:
@@ -1018,8 +1058,39 @@ class TestKeywordOnlyAttributes:
 
     def test_keyword_only_class_level_subclassing(self):
         """
-        Subclass `kw_only` propagates to attrs inherited from the base,
-        allowing non-default following default.
+        Subclass `kw_only` does *not* propagate to attributes inherited from
+        the base: those keep the calling convention they were defined with.
+        """
+
+        @attr.s
+        class Base:
+            x = attr.ib(default=0)
+
+        @attr.s(kw_only=True)
+        class C(Base):
+            y = attr.ib()
+
+        # x stays positional-or-keyword, y is keyword-only.
+        with pytest.raises(TypeError):
+            C(1, 2)
+
+        c = C(1, y=2)
+
+        assert c.x == 1
+        assert c.y == 2
+
+        c = C(x=0, y=1)
+
+        assert c.x == 0
+        assert c.y == 1
+
+    def test_keyword_only_class_level_subclassing_force_override(
+        self, kw_only_force_override
+    ):
+        """
+        With the historic force-override behavior enabled, subclass `kw_only`
+        propagates to attrs inherited from the base, allowing non-default
+        following default.
         """
 
         @attr.s
@@ -1037,6 +1108,289 @@ class TestKeywordOnlyAttributes:
 
         assert c.x == 0
         assert c.y == 1
+
+    def test_keyword_only_field_level_false_wins_over_class_level(self):
+        """
+        A field-level `kw_only=False` is not overridden by a class-level
+        `kw_only=True`: the field stays positional in the generated
+        __init__'s signature and when calling it.
+        """
+
+        @attr.s(kw_only=True)
+        class C:
+            x = attr.ib(kw_only=False)
+            y = attr.ib()
+
+        params = inspect.signature(C).parameters
+
+        assert (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD == params["x"].kind
+        )
+        assert inspect.Parameter.KEYWORD_ONLY == params["y"].kind
+
+        c = C(1, y=2)
+
+        assert c.x == 1
+        assert c.y == 2
+
+        with pytest.raises(TypeError):
+            C(1, 2)
+
+    def test_keyword_only_field_level_false_wins_over_class_level_define(
+        self,
+    ):
+        """
+        Same as above, but for the attrs.define / attrs.field APIs.
+        """
+
+        @attr.define(kw_only=True)
+        class C:
+            x: int = attr.field(kw_only=False)
+            y: int
+
+        params = inspect.signature(C).parameters
+
+        assert (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD == params["x"].kind
+        )
+        assert inspect.Parameter.KEYWORD_ONLY == params["y"].kind
+
+        c = C(1, y=2)
+
+        assert c.x == 1
+        assert c.y == 2
+
+        with pytest.raises(TypeError):
+            C(1, 2)
+
+    def test_keyword_only_field_level_true_wins_over_class_level(self):
+        """
+        A field-level `kw_only=True` is honored even if the class doesn't
+        set `kw_only`.
+        """
+
+        @attr.define
+        class C:
+            x: int
+            y: int = attr.field(kw_only=True)
+
+        params = inspect.signature(C).parameters
+
+        assert (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD == params["x"].kind
+        )
+        assert inspect.Parameter.KEYWORD_ONLY == params["y"].kind
+
+        c = C(1, y=2)
+
+        assert c.x == 1
+        assert c.y == 2
+
+        with pytest.raises(TypeError):
+            C(1, 2)
+
+    def test_keyword_only_multi_level_inheritance(self):
+        """
+        Across multiple inheritance levels, each field keeps the calling
+        convention of the class that defined it: class-level `kw_only` only
+        applies to a class's own fields that don't set it explicitly.
+        """
+
+        @attr.define
+        class Base:
+            a: int
+
+        @attr.define(kw_only=True)
+        class Middle(Base):
+            b: int
+            c: int = attr.field(kw_only=False)
+
+        @attr.define
+        class Leaf(Middle):
+            d: int
+
+        positional = inspect.Parameter.POSITIONAL_OR_KEYWORD
+        kinds = {
+            name: p.kind
+            for name, p in inspect.signature(Leaf).parameters.items()
+        }
+
+        assert {
+            "a": positional,
+            "b": inspect.Parameter.KEYWORD_ONLY,
+            "c": positional,
+            "d": positional,
+        } == kinds
+
+        leaf = Leaf(1, 2, 3, b=4)
+
+        assert (leaf.a, leaf.b, leaf.c, leaf.d) == (1, 4, 2, 3)
+
+        # b is keyword-only everywhere.
+        with pytest.raises(TypeError):
+            Leaf(1, 2, 3, 4)
+
+        # The base class's own __init__ is unchanged.
+        assert ["a"] == list(inspect.signature(Base).parameters)
+        assert ["a", "c", "b"] == list(inspect.signature(Middle).parameters)
+
+    def test_keyword_only_class_level_default_before_positional_mandatory(
+        self,
+    ):
+        """
+        With a class-level `kw_only=True`, a mandatory field that explicitly
+        stays positional may follow a field with a default (which becomes
+        keyword-only via the class-level default).
+        """
+
+        @attr.define(kw_only=True)
+        class C:
+            x: int = 0
+            y: int = attr.field(kw_only=False)
+
+        c = C(1)
+
+        assert c.x == 0
+        assert c.y == 1
+
+        c = C(1, x=2)
+
+        assert c.x == 2
+        assert c.y == 1
+
+    def test_positional_mandatory_after_positional_default_still_raises(
+        self,
+    ):
+        """
+        A mandatory positional field after a positional field with a default
+        remains an error -- explicit `kw_only=False` doesn't change that.
+        """
+        with pytest.raises(ValueError) as ei:
+
+            @attr.define(kw_only=True)
+            class C:
+                x: int = attr.field(default=0, kw_only=False)
+                y: int = attr.field(kw_only=False)
+
+        assert ei.value.args[0].startswith(
+            "No mandatory attributes allowed after an attribute with a "
+            "default value or factory."
+        )
+
+    def test_keyword_only_signature_and_calls_are_consistent(self):
+        """
+        inspect.signature reflects the merged kw_only settings exactly:
+        calls that the signature accepts work, calls it rejects raise
+        TypeError.
+        """
+
+        @attr.define(kw_only=True)
+        class C:
+            a: int = attr.field(kw_only=False)
+            b: int = attr.field(kw_only=False, default=1)
+            c: int = 2
+            d: int = attr.field()
+
+        sig = inspect.signature(C)
+
+        # What the signature accepts also works when calling.
+        bound = sig.bind(10, 20, c=30, d=40)
+        c = C(*bound.args, **bound.kwargs)
+
+        assert (c.a, c.b, c.c, c.d) == (10, 20, 30, 40)
+
+        # What the signature rejects raises TypeError when calling.
+        with pytest.raises(TypeError):
+            sig.bind(10, 20, 30, 40)
+
+        with pytest.raises(TypeError):
+            C(10, 20, 30, 40)
+
+    def test_keyword_only_make_class(self):
+        """
+        The merge rules also apply to classes created with make_class.
+        """
+        C = make_class(
+            "C",
+            {"x": attr.ib(kw_only=False), "y": attr.ib()},
+            kw_only=True,
+        )
+
+        params = inspect.signature(C).parameters
+
+        assert (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD == params["x"].kind
+        )
+        assert inspect.Parameter.KEYWORD_ONLY == params["y"].kind
+
+        c = C(1, y=2)
+
+        assert c.x == 1
+        assert c.y == 2
+
+    def test_kw_only_override_restores_legacy_behavior(
+        self, kw_only_force_override
+    ):
+        """
+        While the override is enabled, a class-level `kw_only=True` forcibly
+        converts *all* fields -- including explicit `kw_only=False` ones and
+        inherited ones -- like attrs historically did.
+        """
+
+        @attr.define
+        class Base:
+            a: int
+
+        @attr.define(kw_only=True)
+        class C(Base):
+            x: int = attr.field(kw_only=False)
+            y: int
+
+        kinds = {
+            name: p.kind
+            for name, p in inspect.signature(C).parameters.items()
+        }
+
+        assert {
+            "a": inspect.Parameter.KEYWORD_ONLY,
+            "x": inspect.Parameter.KEYWORD_ONLY,
+            "y": inspect.Parameter.KEYWORD_ONLY,
+        } == kinds
+
+        with pytest.raises(TypeError):
+            C(1, 2, 3)
+
+        c = C(a=1, x=2, y=3)
+
+        assert (c.a, c.x, c.y) == (1, 2, 3)
+
+    def test_kw_only_override_only_applies_while_enabled(self):
+        """
+        The force-override only applies to classes defined while the switch
+        is enabled; the new merge rules apply again once it's disabled.
+        """
+        _config.set_kw_only_override(True)
+        try:
+
+            @attr.define(kw_only=True)
+            class Legacy:
+                x: int = attr.field(kw_only=False)
+
+        finally:
+            _config.set_kw_only_override(False)
+
+        @attr.define(kw_only=True)
+        class Modern:
+            x: int = attr.field(kw_only=False)
+
+        assert (
+            inspect.Parameter.KEYWORD_ONLY
+            == inspect.signature(Legacy).parameters["x"].kind
+        )
+        assert (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD
+            == inspect.signature(Modern).parameters["x"].kind
+        )
 
     def test_init_false_attribute_after_keyword_attribute(self):
         """

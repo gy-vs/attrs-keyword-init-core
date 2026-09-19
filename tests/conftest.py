@@ -7,6 +7,7 @@ import pytest
 from hypothesis import HealthCheck, settings
 
 from attr._compat import PY_3_10_PLUS, PY_3_14_PLUS
+from attr._config import set_kw_only_override
 
 
 @pytest.fixture(name="slots", params=(True, False))
@@ -17,6 +18,19 @@ def _slots(request):
 @pytest.fixture(name="frozen", params=(True, False))
 def _frozen(request):
     return request.param
+
+
+@pytest.fixture(name="kw_only_force_override")
+def _kw_only_force_override():
+    """
+    Enable the historic class-level `kw_only` force-override behavior for
+    the duration of a test and reliably disable it again afterwards.
+    """
+    set_kw_only_override(True)
+    try:
+        yield
+    finally:
+        set_kw_only_override(False)
 
 
 def pytest_configure(config):

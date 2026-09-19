@@ -214,8 +214,11 @@ def define(
                 5. Subclasses of a frozen class are frozen too.
 
         kw_only (bool):
-            Make all attributes keyword-only in the generated ``__init__`` (if
-            *init* is False, this parameter is ignored).
+            Make all attributes keyword-only by default in the generated
+            ``__init__`` (if *init* is False, this parameter is ignored).
+            Fields that set `attrs.field(kw_only=...) <attrs.field>`
+            explicitly keep their own setting, and fields inherited from
+            base classes are not affected.
 
         weakref_slot (bool):
             Make instances weak-referenceable.  This has no effect unless
@@ -319,6 +322,12 @@ def define(
     .. versionadded:: 24.3.0
        Unless already present, a ``__replace__`` method is automatically
        created for `copy.replace` (Python 3.13+ only).
+    .. versionchanged:: 25.4.0
+       A class-level *kw_only* is now only the default for the class's own
+       fields that don't set *kw_only* explicitly, and no longer converts
+       fields inherited from base classes (matching `dataclasses`).  The
+       historic force-override behavior can be restored using
+       `attrs.set_kw_only_override`.
 
     .. note::
 
@@ -424,7 +433,7 @@ def field(
     type=None,
     converter=None,
     factory=None,
-    kw_only=False,
+    kw_only=None,
     eq=None,
     order=None,
     on_setattr=None,
@@ -550,9 +559,12 @@ def field(
             itself. You can use it as part of your own code or for `static type
             checking <types>`.
 
-        kw_only (bool):
-            Make this attribute keyword-only in the generated ``__init__`` (if
-            ``init`` is False, this parameter is ignored).
+        kw_only (bool | None):
+            Make this attribute keyword-only in the generated ``__init__``
+            (if ``init`` is False, this parameter is ignored).  If left
+            `None` (default), the class-level *kw_only* setting of
+            `attrs.define` (or similar) is used; pass `True` or `False` to
+            override it for this field.
 
         on_setattr (~typing.Callable | list[~typing.Callable] | None | ~typing.Literal[attrs.setters.NO_OP]):
             Allows to overwrite the *on_setattr* setting from `attr.s`. If left

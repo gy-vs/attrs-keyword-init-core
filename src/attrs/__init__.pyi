@@ -32,10 +32,12 @@ from attr import Factory as Factory
 from attr import fields as fields
 from attr import fields_dict as fields_dict
 from attr import filters as filters
+from attr import get_kw_only_override as get_kw_only_override
 from attr import has as has
 from attr import make_class as make_class
 from attr import NOTHING as NOTHING
 from attr import resolve_types as resolve_types
+from attr import set_kw_only_override as set_kw_only_override
 from attr import setters as setters
 from attr import validate as validate
 from attr import validators as validators
@@ -77,7 +79,7 @@ def field(
     metadata: Mapping[Any, Any] | None = ...,
     converter: None = ...,
     factory: None = ...,
-    kw_only: bool = ...,
+    kw_only: bool | None = ...,
     eq: bool | None = ...,
     order: bool | None = ...,
     on_setattr: _OnSetAttrArgType | None = ...,
@@ -101,7 +103,7 @@ def field(
     | tuple[_ConverterType]
     | None = ...,
     factory: Callable[[], _T] | None = ...,
-    kw_only: bool = ...,
+    kw_only: bool | None = ...,
     eq: _EqOrderType | None = ...,
     order: _EqOrderType | None = ...,
     on_setattr: _OnSetAttrArgType | None = ...,
@@ -124,7 +126,7 @@ def field(
     | tuple[_ConverterType]
     | None = ...,
     factory: Callable[[], _T] | None = ...,
-    kw_only: bool = ...,
+    kw_only: bool | None = ...,
     eq: _EqOrderType | None = ...,
     order: _EqOrderType | None = ...,
     on_setattr: _OnSetAttrArgType | None = ...,
@@ -147,7 +149,7 @@ def field(
     | tuple[_ConverterType]
     | None = ...,
     factory: Callable[[], _T] | None = ...,
-    kw_only: bool = ...,
+    kw_only: bool | None = ...,
     eq: _EqOrderType | None = ...,
     order: _EqOrderType | None = ...,
     on_setattr: _OnSetAttrArgType | None = ...,

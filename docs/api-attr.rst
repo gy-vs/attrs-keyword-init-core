@@ -244,5 +244,12 @@ They won't be removed, but are discouraged to use:
 
 ----
 
+The following APIs globally restore the historic class-level ``kw_only`` behavior (forcefully converting all fields, including inherited ones, when a class sets ``kw_only=True``):
+
+.. autofunction:: set_kw_only_override
+.. autofunction:: get_kw_only_override
+
+----
+
 The serious-business aliases used to be called ``attr.attributes`` and ``attr.attr``.
 There are no plans to remove them but they shouldn't be used in new code.

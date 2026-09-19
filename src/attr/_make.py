@@ -114,7 +114,7 @@ def attrib(
     type=None,
     converter=None,
     factory=None,
-    kw_only=False,
+    kw_only=None,
     eq=None,
     order=None,
     on_setattr=None,
@@ -157,6 +157,11 @@ def attrib(
        *eq*, *order*, and *cmp* also accept a custom callable
     .. versionchanged:: 21.1.0 *cmp* undeprecated
     .. versionadded:: 22.2.0 *alias*
+    .. versionchanged:: 25.4.0
+       *kw_only* now defaults to `None`, which means the class-level
+       *kw_only* setting of `attr.s` / `attrs.define` is used.  Pass `True`
+       or `False` explicitly to always override the class-level setting for
+       this field.
     """
     eq, eq_key, order, order_key = _determine_attrib_eq_order(
         cmp, eq, order, True
@@ -442,9 +447,24 @@ def _transform_attrs(
             cls, {a.name for a in own_attrs}
         )
 
-    if kw_only:
+    if kw_only and _config.get_kw_only_override():
+        # Historic behavior: a class-level kw_only=True forcefully converts
+        # *all* attributes -- including inherited ones and those that
+        # explicitly opt out using kw_only=False.  Only reachable if the
+        # override has been enabled using attrs.set_kw_only_override().
         own_attrs = [a.evolve(kw_only=True) for a in own_attrs]
         base_attrs = [a.evolve(kw_only=True) for a in base_attrs]
+    else:
+        # A class-level kw_only is only the default for the class's own
+        # fields that don't set it explicitly (None means "not set").  It
+        # never touches inherited attributes -- like dataclasses, a
+        # subclass's setting doesn't change how base class fields are
+        # passed.  Fields that are left unset get the class-level value
+        # (False by default), so every Attribute ends up with a bool.
+        for a in own_attrs:
+            if a.kw_only is None:
+                # Evolve is very slow, so we hold our nose and do it dirty.
+                _OBJ_SETATTR.__get__(a)("kw_only", bool(kw_only))
 
     attrs = base_attrs + own_attrs
 
@@ -1418,6 +1438,13 @@ def attrs(
        If a class has an *inherited* classmethod called
        ``__attrs_init_subclass__``, it is executed after the class is created.
     .. deprecated:: 24.1.0 *hash* is deprecated in favor of *unsafe_hash*.
+    .. versionchanged:: 25.4.0
+       A class-level *kw_only* is now only the default for the class's own
+       fields that don't set *kw_only* explicitly -- it no longer overrides
+       `attr.ib(kw_only=False) <attr.ib>` and no longer converts fields
+       inherited from base classes (matching `dataclasses`).  The historic
+       force-override behavior can be restored using
+       `attrs.set_kw_only_override`.
     """
     if repr_ns is not None:
         import warnings
