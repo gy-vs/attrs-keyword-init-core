@@ -114,7 +114,7 @@ def attrib(
     type=None,
     converter=None,
     factory=None,
-    kw_only=False,
+    kw_only=None,
     eq=None,
     order=None,
     on_setattr=None,
@@ -153,6 +153,10 @@ def attrib(
     .. versionadded:: 19.2.0 *eq* and *order*
     .. versionadded:: 20.1.0 *on_setattr*
     .. versionchanged:: 20.3.0 *kw_only* backported to Python 2
+    .. versionchanged:: 26.1.0
+       *kw_only* now defaults to `None`, meaning the attribute inherits the
+       class-level *kw_only* setting. An explicit True or False on a field
+       always takes precedence over the class-level setting.
     .. versionchanged:: 21.1.0
        *eq*, *order*, and *cmp* also accept a custom callable
     .. versionchanged:: 21.1.0 *cmp* undeprecated
@@ -442,9 +446,22 @@ def _transform_attrs(
             cls, {a.name for a in own_attrs}
         )
 
-    if kw_only:
+    if kw_only and _config._force_kw_only_override:
+        # Historic behavior: a class-level kw_only=True forcibly converts
+        # *all* attributes -- including inherited ones and those that
+        # explicitly set kw_only=False -- to keyword-only.  Only reachable
+        # when the compat switch is explicitly enabled.
         own_attrs = [a.evolve(kw_only=True) for a in own_attrs]
         base_attrs = [a.evolve(kw_only=True) for a in base_attrs]
+    else:
+        # The class-level kw_only is only a default for the class's own
+        # attributes that don't set it explicitly: an explicit field-level
+        # True or False always wins and inherited attributes are left alone.
+        # Resolve the remaining unset (None) ones to the class-level value.
+        for a in own_attrs:
+            if a.kw_only is None:
+                # Evolve is very slow, so we hold our nose and do it dirty.
+                _OBJ_SETATTR.__get__(a)("kw_only", bool(kw_only))
 
     attrs = base_attrs + own_attrs
 
@@ -1393,6 +1410,12 @@ def attrs(
        ``__lt__``, ``__le__``, ``__gt__``, and ``__ge__`` now do not consider
        subclasses comparable anymore.
     .. versionadded:: 18.2.0 *kw_only*
+    .. versionchanged:: 26.1.0
+       A class-level *kw_only* is now only the default for the class's own
+       fields that don't set *kw_only* explicitly: an explicit field-level
+       True or False takes precedence and inherited fields are no longer
+       modified.  The historic behavior can be restored using
+       `attr.set_force_kw_only_override`.
     .. versionadded:: 18.2.0 *cache_hash*
     .. versionadded:: 19.1.0 *auto_exc*
     .. deprecated:: 19.2.0 *cmp* Removal on or after 2021-06-01.

@@ -156,7 +156,7 @@ TypeError: A() missing 1 required keyword-only argument: 'a'
 A(a=1)
 ```
 
-`kw_only` may also be specified at decorator level, and will apply to all attributes:
+`kw_only` may also be specified at decorator level, and will apply to all attributes that don't set it explicitly:
 
 ```{doctest}
 >>> @define(kw_only=True)
@@ -169,6 +169,20 @@ Traceback (most recent call last):
 TypeError: __init__() takes 1 positional argument but 3 were given
 >>> A(a=1, b=2)
 A(a=1, b=2)
+```
+
+A field-level `kw_only` always takes precedence over the class-level setting, and a class-level setting never modifies fields inherited from base classes:
+
+```{doctest}
+>>> @define
+... class A:
+...     a: int
+>>> @define(kw_only=True)
+... class B(A):
+...     b: int = field(kw_only=False)
+...     c: int
+>>> B(1, 2, c=3)
+B(a=1, b=2, c=3)
 ```
 
 If you create an attribute with `init=False`, the `kw_only` argument is ignored.

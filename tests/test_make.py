@@ -242,9 +242,9 @@ class TestTransformAttrs:
 
     def test_kw_only(self):
         """
-        Converts all attributes, including base class' attributes, if `kw_only`
-        is provided. Therefore, `kw_only` allows attributes with defaults to
-        precede mandatory attributes.
+        Converts the class's own attributes if `kw_only` is provided, but
+        leaves inherited attributes alone. Therefore, `kw_only` allows
+        attributes with defaults to precede mandatory attributes.
 
         Updates in the subclass *don't* affect the base class attributes.
         """
@@ -267,8 +267,9 @@ class TestTransformAttrs:
         assert len(attrs) == 3
         assert len(base_attrs) == 1
 
-        for a in attrs:
-            assert a.kw_only is True
+        # Own attributes become keyword-only, the inherited one doesn't.
+        assert [a.kw_only for a in attrs] == [False, True, True]
+        assert base_attrs[0].kw_only is False
 
         for b_a in B.__attrs_attrs__:
             assert b_a.kw_only is False
@@ -1018,8 +1019,8 @@ class TestKeywordOnlyAttributes:
 
     def test_keyword_only_class_level_subclassing(self):
         """
-        Subclass `kw_only` propagates to attrs inherited from the base,
-        allowing non-default following default.
+        Subclass `kw_only` does not propagate to attrs inherited from the
+        base: inherited attrs keep their original calling convention.
         """
 
         @attr.s
@@ -1030,13 +1031,17 @@ class TestKeywordOnlyAttributes:
         class C(Base):
             y = attr.ib()
 
+        # The inherited x can be passed positionally, y must be a keyword.
+        c = C(1, y=2)
+
+        assert c.x == 1
+        assert c.y == 2
+
         with pytest.raises(TypeError):
-            C(1)
+            C(1, 2)
 
-        c = C(x=0, y=1)
-
-        assert c.x == 0
-        assert c.y == 1
+        # The base class is not modified.
+        assert Base.__attrs_attrs__[0].kw_only is False
 
     def test_init_false_attribute_after_keyword_attribute(self):
         """

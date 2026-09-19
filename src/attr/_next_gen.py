@@ -217,6 +217,10 @@ def define(
             Make all attributes keyword-only in the generated ``__init__`` (if
             *init* is False, this parameter is ignored).
 
+            This is only the default for the class's own fields: a field that
+            sets *kw_only* explicitly keeps its setting, and fields inherited
+            from base classes are not modified.
+
         weakref_slot (bool):
             Make instances weak-referenceable.  This has no effect unless
             *slots* is True.
@@ -319,6 +323,12 @@ def define(
     .. versionadded:: 24.3.0
        Unless already present, a ``__replace__`` method is automatically
        created for `copy.replace` (Python 3.13+ only).
+    .. versionchanged:: 26.1.0
+       A class-level *kw_only* is now only the default for the class's own
+       fields that don't set *kw_only* explicitly: an explicit field-level
+       True or False takes precedence and inherited fields are no longer
+       modified.  The historic behavior can be restored using
+       `attr.set_force_kw_only_override`.
 
     .. note::
 
@@ -424,7 +434,7 @@ def field(
     type=None,
     converter=None,
     factory=None,
-    kw_only=False,
+    kw_only=None,
     eq=None,
     order=None,
     on_setattr=None,
@@ -554,6 +564,10 @@ def field(
             Make this attribute keyword-only in the generated ``__init__`` (if
             ``init`` is False, this parameter is ignored).
 
+            If left None, the class-level *kw_only* setting of `attrs.define`
+            (or its friends) is used. An explicit True or False always takes
+            precedence over the class-level setting.
+
         on_setattr (~typing.Callable | list[~typing.Callable] | None | ~typing.Literal[attrs.setters.NO_OP]):
             Allows to overwrite the *on_setattr* setting from `attr.s`. If left
             None, the *on_setattr* value from `attr.s` is used. Set to
@@ -572,6 +586,10 @@ def field(
     .. versionadded:: 23.1.0
        The *type* parameter has been re-added; mostly for `attrs.make_class`.
        Please note that type checkers ignore this metadata.
+    .. versionchanged:: 26.1.0
+       *kw_only* now defaults to `None`, meaning the attribute inherits the
+       class-level *kw_only* setting. An explicit True or False on a field
+       always takes precedence over the class-level setting.
 
     .. seealso::
 

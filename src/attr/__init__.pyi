@@ -176,7 +176,7 @@ def attrib(
     type: None = ...,
     converter: None = ...,
     factory: None = ...,
-    kw_only: bool = ...,
+    kw_only: bool | None = ...,
     eq: _EqOrderType | None = ...,
     order: _EqOrderType | None = ...,
     on_setattr: _OnSetAttrArgType | None = ...,
@@ -200,7 +200,7 @@ def attrib(
     | tuple[_ConverterType]
     | None = ...,
     factory: Callable[[], _T] | None = ...,
-    kw_only: bool = ...,
+    kw_only: bool | None = ...,
     eq: _EqOrderType | None = ...,
     order: _EqOrderType | None = ...,
     on_setattr: _OnSetAttrArgType | None = ...,
@@ -223,7 +223,7 @@ def attrib(
     | tuple[_ConverterType]
     | None = ...,
     factory: Callable[[], _T] | None = ...,
-    kw_only: bool = ...,
+    kw_only: bool | None = ...,
     eq: _EqOrderType | None = ...,
     order: _EqOrderType | None = ...,
     on_setattr: _OnSetAttrArgType | None = ...,
@@ -246,7 +246,7 @@ def attrib(
     | tuple[_ConverterType]
     | None = ...,
     factory: Callable[[], _T] | None = ...,
-    kw_only: bool = ...,
+    kw_only: bool | None = ...,
     eq: _EqOrderType | None = ...,
     order: _EqOrderType | None = ...,
     on_setattr: _OnSetAttrArgType | None = ...,
@@ -381,6 +381,8 @@ def evolve(inst: _T, **changes: Any) -> _T: ...
 
 def set_run_validators(run: bool) -> None: ...
 def get_run_validators() -> bool: ...
+def set_force_kw_only_override(force: bool) -> None: ...
+def get_force_kw_only_override() -> bool: ...
 
 # aliases --
 

@@ -41,3 +41,39 @@ class TestConfig:
         with pytest.raises(TypeError) as e:
             _config.set_run_validators("False")
         assert "'run' must be bool." == e.value.args[0]
+
+    def test_force_kw_only_override_default(self):
+        """
+        The historic class-level kw_only override is off by default.
+        """
+        assert False is _config._force_kw_only_override
+
+    def test_set_force_kw_only_override(self):
+        """
+        Sets `_force_kw_only_override`.
+        """
+        _config.set_force_kw_only_override(True)
+        assert True is _config._force_kw_only_override
+        _config.set_force_kw_only_override(False)
+        assert False is _config._force_kw_only_override
+
+    def test_get_force_kw_only_override(self):
+        """
+        Returns `_force_kw_only_override`.
+        """
+        _config._force_kw_only_override = True
+        assert _config._force_kw_only_override is (
+            _config.get_force_kw_only_override()
+        )
+        _config._force_kw_only_override = False
+        assert _config._force_kw_only_override is (
+            _config.get_force_kw_only_override()
+        )
+
+    def test_force_kw_only_override_wrong_type(self):
+        """
+        Passing anything else than a boolean raises TypeError.
+        """
+        with pytest.raises(TypeError) as e:
+            _config.set_force_kw_only_override("True")
+        assert "'force' must be bool." == e.value.args[0]

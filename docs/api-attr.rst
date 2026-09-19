@@ -244,5 +244,12 @@ They won't be removed, but are discouraged to use:
 
 ----
 
+The historic behavior of a class-level ``kw_only=True`` (forcibly converting *all* fields -- including inherited ones and those that explicitly set ``kw_only=False`` -- to keyword-only) can be restored globally:
+
+.. autofunction:: set_force_kw_only_override
+.. autofunction:: get_force_kw_only_override
+
+----
+
 The serious-business aliases used to be called ``attr.attributes`` and ``attr.attr``.
 There are no plans to remove them but they shouldn't be used in new code.
